@@ -4,8 +4,10 @@
 # to change anything in this file.
 
 
+import json
+
 from ae_manager import AEManager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 
 app = FastAPI()
 manager = AEManager()
@@ -18,13 +20,29 @@ async def ae(request: Request) -> dict[str, list[dict[str, int]]]:
     Returns action taken given current observation (int)
     """
 
-    # get observation, feed into model
-    input_json = await request.json()
+    body = await request.body()
+    if not body.strip():
+        manager.reset()
+        return {"predictions": []}
+
+    try:
+        input_json = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Request body must be valid JSON.") from exc
+
+    instances = input_json.get("instances")
+    if not isinstance(instances, list):
+        raise HTTPException(status_code=400, detail="Request JSON must contain an 'instances' list.")
 
     predictions = []
     # each is a dict with one key "observation" and the value as a dictionary observation
-    for instance in input_json["instances"]:
-        observation = instance["observation"]
+    for instance in instances:
+        observation = instance.get("observation")
+        if not isinstance(observation, dict):
+            raise HTTPException(
+                status_code=400,
+                detail="Each instance must contain an 'observation' object.",
+            )
         # reset environment on a new round
         # You will have to do your own internal counting and reset your own system between rounds!
         # if observation["step"] == 0:

@@ -2,3 +2,5 @@
 
 fastapi
 uvicorn[standard]
+numpy
+torch
